@@ -2,7 +2,7 @@
 
 ## 安装Geth
 
-```
+```shell
 //安装Geth
 add-apt-repository -y ppa:ethereum/ethereum
 apt-get update
@@ -24,7 +24,7 @@ Repeat passphrase:
 
 ## open-ethereum-pool矿池安装
 
-```
+```shell
 //go >= 1.9
 //geth or parity
 //redis-server >= 2.8.0
@@ -67,7 +67,7 @@ cp config.example.json config.json
 
 ## 运行www
 
-```
+```shell
 //编译www
 cd www
 npm install -g ember-cli@2.9.1
@@ -95,7 +95,7 @@ service nginx restart
 
 ## 使用ethminer测试open-ethereum-pool
 
-```
+```shell
 //下载地址https://github.com/ethereum-mining/ethminer/releases/download/v0.14.0.dev2/ethminer-0.14.0.dev2-Windows.zip
 //解压至C:\ethminer
 //启动

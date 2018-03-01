@@ -23,7 +23,7 @@ type ProxyServer struct {
 
 ## Geth JavaScript console
 
-```
+```shell
 //getBlock
 > eth.getBlock('pending')
 {
