@@ -3,14 +3,17 @@
 ## 安装Geth
 
 ```shell
+//安装parity
+wget http://d1h4xl4cr1h0mo.cloudfront.net/v1.9.4/x86_64-unknown-linux-gnu/parity_1.9.4_ubuntu_amd64.deb
+dpkg -i parity_1.9.4_ubuntu_amd64.deb
+parity --chain=ropsten --geth --rpccorsdomain=all
+
 //安装Geth
 add-apt-repository -y ppa:ethereum/ethereum
 apt-get update
 apt-get -y install ethereum
-
-//启动Geth Rinkeby测试网络
-mkdir -p /work/geth/
-geth --rinkeby --rpc --rpccorsdomain "*" --rpcapi "db,eth,net,web3" console 2>>/work/geth/console.log
+//启动Geth连接parity
+geth attach http://127.0.0.1:8545
 
 //区块同步进展
 > eth.syncing
@@ -19,7 +22,10 @@ geth --rinkeby --rpc --rpccorsdomain "*" --rpcapi "db,eth,net,web3" console 2>>/
 > personal.newAccount()
 Passphrase: 
 Repeat passphrase: 
-"0xddbb0bbbb2729944dfb37266028d76143b167821"
+"0xa5230ee1a682bf6a65245d2be3ff1b7b56b62ec6"
+
+//查账户余额
+> eth.getBalance("0xa5230ee1a682bf6a65245d2be3ff1b7b56b62ec6")
 ```
 
 ## open-ethereum-pool矿池安装
@@ -68,6 +74,11 @@ cp config.example.json config.json
 ## 运行www
 
 ```shell
+//修改www/config/environment.js
+vim www/config/environment.js
+
+ApiUrl: '//10.18.216.180/',
+
 //编译www
 cd www
 npm install -g ember-cli@2.9.1
@@ -91,6 +102,12 @@ location /api {
 service nginx restart
 
 //访问地址：http://10.18.216.180/
+//API地址
+http://10.18.216.180/api/stats
+http://10.18.216.180/api/miners
+http://10.18.216.180/api/blocks
+http://10.18.216.180/api/payments
+http://10.18.216.180/api/accounts/{login:0x[0-9a-fA-F]{40}}
 ```
 
 ## 使用ethminer测试open-ethereum-pool
@@ -100,7 +117,7 @@ service nginx restart
 //解压至C:\ethminer
 //启动
 cd c:\ethminer\bin
-ethminer.exe -G -F http://eth-eu.dwarfpool.com:80/0xc1d0932D18a4Ec35728b7fF02288dF745D1f4F40
+ethminer.exe -G -F http://10.18.216.180:8888/0xc1d0932D18a4Ec35728b7fF02288dF745D1f4F40
 ```
 
 ## 参考文档
@@ -108,7 +125,7 @@ ethminer.exe -G -F http://eth-eu.dwarfpool.com:80/0xc1d0932D18a4Ec35728b7fF02288
 * [Installing Go Ethereum](https://ethereum.github.io/go-ethereum/install/#install-on-ubuntu-via-ppas)
 * [以太坊客户端Geth命令用法-参数详解](http://blog.csdn.net/xilibi2003/article/details/78662000)
 * [JavaScript Runtime Environment](https://ethereum.gitbooks.io/frontier-guide/content/jsre.html)
-* [Rinkeby Testnet Ethereum BlockChain Explorer and Search](https://rinkeby.etherscan.io/)
+* [Ropsten Testnet Ethereum BlockChain Explorer and Search](https://ropsten.etherscan.io/)
 * [Installation Instructions for Ubuntu](https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Ubuntu)
 * [Open Source Ethereum Mining Pool](https://github.com/sammy007/open-ethereum-pool)
 * [ethminer](https://github.com/ethereum-mining/ethminer)

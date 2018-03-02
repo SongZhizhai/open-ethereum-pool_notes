@@ -4,3 +4,12 @@
 * [open-ethereum-pool以太坊矿池-main入口](main/main.md)
 * [open-ethereum-pool以太坊矿池-proxy模块](proxy/proxy.md)
 
+## 参考文档
+
+* [Open Source Ethereum Mining Pool](https://github.com/sammy007/open-ethereum-pool)
+* [ethminer](https://github.com/ethereum-mining/ethminer)
+* [Ropsten Testnet Ethereum BlockChain Explorer and Search](https://ropsten.etherscan.io/)
+* [Management APIs](https://github.com/ethereum/go-ethereum/wiki/Management-APIs)
+* [Web3.js API 中文文档](http://web3.tryblockchain.org/Web3.js-api-refrence.html)
+* [JSON-RPC methods](https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getwork)
+* [Stratum Mining Protocol](https://github.com/sammy007/open-ethereum-pool/blob/master/docs/STRATUM.md)
