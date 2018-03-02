@@ -36,6 +36,10 @@ type ProxyServer struct {
 
 ![](NewProxy.png)
 
+## ProxyServer Start流程图
+
+![](httpServer.png)
+
 ## Stratum Mining Protocol
 
 ### eth_submitLogin
