@@ -9,8 +9,9 @@ type RedisClient struct {
 }
 ```
 
-## Redis Key
+## Redis数据结构
 
+```
 * eth:nodes
 	* eth:nodes:main:name
 	* eth:nodes:main:height
@@ -57,6 +58,7 @@ type RedisClient struct {
 	* eth:payments:all
 		* ZREVRANGE eth:payments:all 0 49 WITHSCORES
 		* ZCARD eth:payments:all
+```
 
 ## Redis数据调取
 
