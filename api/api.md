@@ -80,14 +80,17 @@ func (r *RedisClient) CollectStats(smallWindow time.Duration, maxBlocks, maxPaym
 		
 		//Zrevrange 命令返回有序集中，指定区间内的成员
 		//ZREVRANGE eth:blocks:candidates 0 -1 WITHSCORES
+		//candidates为候选者
 		tx.ZRevRangeWithScores(r.formatKey("blocks", "candidates"), 0, -1)
 		
 		//同上
 		//ZREVRANGE eth:blocks:immature 0 -1 WITHSCORES
+		//immature为未成年
 		tx.ZRevRangeWithScores(r.formatKey("blocks", "immature"), 0, -1)
 		
 		//同上
 		//ZREVRANGE eth:blocks:matured 0 49 WITHSCORES
+		//matured为成熟
 		tx.ZRevRangeWithScores(r.formatKey("blocks", "matured"), 0, maxBlocks-1)
 		
 		//Zcard 命令用于计算集合中元素的数量
@@ -225,3 +228,4 @@ func (r *RedisClient) FlushStaleStats(window, largeWindow time.Duration) (int64,
 
 * [gopkg.in/redis.v3](https://godoc.org/gopkg.in/redis.v3)
 * [Redis学习手册(Sorted-Sets数据类型)](https://www.cnblogs.com/stephen-liu74/archive/2012/03/23/2354994.html)
+* [Redis Command 命令](http://www.runoob.com/redis/server-command.html)

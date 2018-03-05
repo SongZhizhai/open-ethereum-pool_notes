@@ -9,10 +9,60 @@ type RedisClient struct {
 }
 ```
 
-## WriteNodeState
+## Redis Key
+
+* eth:nodes
+	* eth:nodes:main:name
+	* eth:nodes:main:height
+	* eth:nodes:main:difficulty
+	* eth:nodes:main:lastBeat
+* eth:pow
+	* ZADD eth:pow height params
+* eth:stats
+	* HINCRBY eth:stats roundShares diff
+	* HDEL eth:stats roundShares
+	* HGETALL eth:stats
+	* HSET eth:stats lastBlockFound ts
+* eth:shares
+	* eth:shares:roundCurrent
+		* HINCRBY eth:shares:roundCurrent login diff
+		* RENAME eth:shares:roundCurrent eth:shares:round&height:nonce
+		* HGETALL eth:shares:round&height:nonce
+* eth:hashrate
+	* eth:hashrate
+		* ZADD eth:hashrate ts diff:login:id:ms
+		* ZREMRANGEBYSCORE eth:hashrate -inf (now-window
+		* ZRANGE eth:hashrate 0 -1 WITHSCORES
+	* eth:hashrate:login
+		* ZADD eth:hashrate:login ts diff:login:id:ms
+		* EXPIRE eth:hashrate:login expire
+* eth:miners
+	* eth:miners:login
+		* HSET eth:miners:login lastShare ts
+		* HINCRBY eth:miners:login blocksFound 1
+* eth:finders
+	* ZINCRBY eth:finders 1 login
+* eth:blocks
+	* eth:blocks:candidates
+		* ZADD eth:blocks:candidates height nonce:powHash:mixDigest:MakeTimestamp:h.diff:totalShares
+		* ZREVRANGE eth:blocks:candidates 0 -1 WITHSCORES
+		* ZCARD eth:blocks:candidates
+	* eth:blocks:immature
+		* ZREVRANGE eth:blocks:immature 0 -1 WITHSCORES
+		* ZCARD eth:blocks:immature
+	* eth:blocks:matured
+		* ZREVRANGE eth:blocks:matured 0 49 WITHSCORES
+		* ZCARD eth:blocks:matured
+* eth:payments
+	* eth:payments:all
+		* ZREVRANGE eth:payments:all 0 49 WITHSCORES
+		* ZCARD eth:payments:all
+
+## Redis数据调取
 
 ```
 redis-cli -h 127.0.0.1 -p 6379
+
 127.0.0.1:6379> hgetall eth:nodes
 1) "main:name"
 2) "main"
@@ -24,39 +74,6 @@ redis-cli -h 127.0.0.1 -p 6379
 8) "1519977829"
 //补充main:lastBeat为写入时间
 ```
-
-每3s写入redis（写入间隔由proxy.stateUpdateInterval指定）
-
-```
-func NewProxy(cfg *Config, backend *storage.RedisClient) *ProxyServer {
-	//部分代码略
-	stateUpdateIntv := util.MustParseDuration(cfg.Proxy.StateUpdateInterval)
-	stateUpdateTimer := time.NewTimer(stateUpdateIntv)
-	//部分代码略
-	go func() {
-		for {
-			select {
-			case <-stateUpdateTimer.C:
-				t := proxy.currentBlockTemplate()
-				if t != nil {
-					err := backend.WriteNodeState(cfg.Name, t.Height, t.Difficulty)
-					if err != nil {
-						log.Printf("Failed to write node state to backend: %v", err)
-						proxy.markSick()
-					} else {
-						proxy.markOk()
-					}
-				}
-				stateUpdateTimer.Reset(stateUpdateIntv)
-			}
-		}
-	}()
-	//部分代码略
-}
-//代码位置proxy/proxy.go
-```
-
-## 
 
 ## 参考文档
 

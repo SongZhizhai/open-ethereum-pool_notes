@@ -21,6 +21,27 @@ type ProxyServer struct {
 }
 ```
 
+## BlockTemplate定义
+
+```go
+type BlockTemplate struct {
+        sync.RWMutex
+        Header               string
+        Seed                 string
+        Target               string
+        Difficulty           *big.Int
+        Height               uint64
+        GetPendingBlockCache *rpc.GetBlockReplyPart
+        nonces               map[string]bool
+        headers              map[string]heightDiffPair
+}
+
+type heightDiffPair struct {
+        diff   *big.Int
+        height uint64
+}
+``
+
 ## 以太坊Pow算法原理
 
 ```
@@ -39,6 +60,179 @@ type ProxyServer struct {
 ## ProxyServer Start流程图
 
 ![](httpServer.png)
+
+## eth_submitWork处理流程图
+
+即：processShare()
+
+![](eth_submitWork.png)
+
+## WriteNodeState原理
+
+```go
+//cfg.Proxy.StateUpdateInterval为WriteNodeState定时器，时间为3s
+//调取：err := backend.WriteNodeState(cfg.Name, t.Height, t.Difficulty)
+func (r *RedisClient) WriteNodeState(id string, height uint64, diff *big.Int) error {
+	tx := r.client.Multi()
+	defer tx.Close()
+
+	now := util.MakeTimestamp() / 1000
+	_, err := tx.Exec(func() error {
+		//HSET eth:nodes:main:name main
+		tx.HSet(r.formatKey("nodes"), join(id, "name"), id)
+		//HSET eth:nodes:main:height height
+		tx.HSet(r.formatKey("nodes"), join(id, "height"), strconv.FormatUint(height, 10))
+		//HSET eth:nodes:main:difficulty difficulty
+		tx.HSet(r.formatKey("nodes"), join(id, "difficulty"), diff.String())
+		//HSET eth:nodes:main:lastBeat now
+		tx.HSet(r.formatKey("nodes"), join(id, "lastBeat"), strconv.FormatInt(now, 10))
+		return nil
+	})
+	return err
+}
+```
+
+## WriteBlock原理
+
+```go
+//调取：exist, err := s.backend.WriteBlock(login, id, params, shareDiff, h.diff.Int64(), h.height, s.hashrateExpiration)
+//s.hashrateExpiration即cfg.Proxy.HashrateExpiration，为3h，即TTL（生命周期） for workers stats，通常等于hashrateLargeWindow
+func (r *RedisClient) WriteBlock(login, id string, params []string, diff, roundDiff int64, height uint64, window time.Duration) (bool, error) {
+	//写入eth:pow中，并检查是否已存在
+	exist, err := r.checkPoWExist(height, params)
+	if err != nil {
+		return false, err
+	}
+	// Duplicate share, (nonce, powHash, mixDigest) pair exist
+	//已存在
+	if exist {
+		return true, nil
+	}
+	tx := r.client.Multi()
+	defer tx.Close()
+
+	ms := util.MakeTimestamp()
+	ts := ms / 1000 //转换成秒
+
+	cmds, err := tx.Exec(func() error {
+		//调取writeShare
+		r.writeShare(tx, ms, ts, login, id, diff, window)
+		
+		//HSET eth:stats lastBlockFound ts
+		//Hset 命令用于为哈希表中的字段赋值
+		tx.HSet(r.formatKey("stats"), "lastBlockFound", strconv.FormatInt(ts, 10))
+		
+		//HDEL eth:stats roundShares
+		//Hdel 命令用于删除哈希表 key 中的一个或多个指定字段，不存在的字段将被忽略
+		tx.HDel(r.formatKey("stats"), "roundShares")
+		
+		//ZINCRBY eth:finders 1 login
+		//Zincrby 命令对有序集合中指定成员的分数加上增量 increment
+		tx.ZIncrBy(r.formatKey("finders"), 1, login)
+		
+		//HINCRBY eth:miners:login blocksFound 1
+		//Hincrby 命令用于为哈希表中的字段值加上指定增量值
+		tx.HIncrBy(r.formatKey("miners", login), "blocksFound", 1)
+		
+		//RENAME eth:shares:roundCurrent eth:shares:round&height:nonce
+		//Rename 命令用于修改 key 的名称
+		tx.Rename(r.formatKey("shares", "roundCurrent"), r.formatRound(int64(height), params[0]))
+		
+		//HGETALL eth:shares:round&height:nonce
+		//Hgetall 命令用于返回哈希表中，所有的字段和值
+		tx.HGetAllMap(r.formatRound(int64(height), params[0]))
+		return nil
+	})
+	if err != nil {
+		return false, err
+	} else {
+		//HGETALL eth:shares:round&height:nonce
+		//Hgetall 命令用于返回哈希表中，所有的字段和值
+		sharesMap, _ := cmds[10].(*redis.StringStringMapCmd).Result()
+		totalShares := int64(0)
+		for _, v := range sharesMap {
+			n, _ := strconv.ParseInt(v, 10, 64)
+			totalShares += n
+		}
+		
+		//nonce、powHash、mixDigest
+		hashHex := strings.Join(params, ":")
+		//MakeTimestamp、h.diff、totalShares
+		s := join(hashHex, ts, roundDiff, totalShares)
+		//ZADD eth:blocks:candidates height nonce:powHash:mixDigest:MakeTimestamp:h.diff:totalShares
+		//Zadd 命令用于将一个或多个成员元素及其分数值加入到有序集当中
+		//candidates为候选者
+		cmd := r.client.ZAdd(r.formatKey("blocks", "candidates"), redis.Z{Score: float64(height), Member: s})
+		return false, cmd.Err()
+	}
+}
+
+func (r *RedisClient) checkPoWExist(height uint64, params []string) (bool, error) {
+        // Sweep PoW backlog for previous blocks, we have 3 templates back in RAM
+		//扫描积压的前块
+		//ZREMRANGEBYSCORE eth:pow -inf (height-8
+		//Zremrangebyscore 命令用于移除有序集中，指定分数（score）区间内的所有成员
+        r.client.ZRemRangeByScore(r.formatKey("pow"), "-inf", fmt.Sprint("(", height-8))
+		
+		//ZADD eth:pow height params
+		//Zadd 命令用于将一个或多个成员元素及其分数值加入到有序集当中
+        val, err := r.client.ZAdd(r.formatKey("pow"), redis.Z{Score: float64(height), Member: strings.Join(params, ":")}).Result()
+        return val == 0, err
+}
+```
+
+## WriteShare原理
+
+```go
+func (r *RedisClient) WriteShare(login, id string, params []string, diff int64, height uint64, window time.Duration) (bool, error) {
+	//ZADD eth:pow height params
+	//写入eth:pow中，并检查是否已存在
+	exist, err := r.checkPoWExist(height, params)
+	if err != nil {
+		return false, err
+	}
+	// Duplicate share, (nonce, powHash, mixDigest) pair exist
+	//已存在
+	if exist {
+		return true, nil
+	}
+	tx := r.client.Multi()
+	defer tx.Close()
+
+	ms := util.MakeTimestamp()
+	ts := ms / 1000
+
+	_, err = tx.Exec(func() error {
+		r.writeShare(tx, ms, ts, login, id, diff, window)
+		
+		//HINCRBY eth:stats roundShares diff
+		//Hincrby 命令用于为哈希表中的字段值加上指定增量值
+		tx.HIncrBy(r.formatKey("stats"), "roundShares", diff)
+		return nil
+	})
+	return false, err
+}
+
+func (r *RedisClient) writeShare(tx *redis.Multi, ms, ts int64, login, id string, diff int64, expire time.Duration) {
+	//HINCRBY eth:shares:roundCurrent login diff
+	//Hincrby 命令用于为哈希表中的字段值加上指定增量值
+	tx.HIncrBy(r.formatKey("shares", "roundCurrent"), login, diff)
+	
+	//ZADD eth:hashrate ts diff:login:id:ms
+	//Zadd 命令用于将一个或多个成员元素及其分数值加入到有序集当中
+	tx.ZAdd(r.formatKey("hashrate"), redis.Z{Score: float64(ts), Member: join(diff, login, id, ms)})
+	//ZADD eth:hashrate:login ts diff:login:id:ms
+	tx.ZAdd(r.formatKey("hashrate", login), redis.Z{Score: float64(ts), Member: join(diff, id, ms)})
+	
+	//EXPIRE eth:hashrate:login expire
+	//expire即cfg.Proxy.HashrateExpiration，即3小时
+	tx.Expire(r.formatKey("hashrate", login), expire) // Will delete hashrates for miners that gone
+	
+	//HSET eth:miners:login lastShare ts
+	//Hset 命令用于为哈希表中的字段赋值
+	tx.HSet(r.formatKey("miners", login), "lastShare", strconv.FormatInt(ts, 10))
+}
+```
 
 ## Stratum Mining Protocol
 
@@ -179,3 +373,4 @@ type ProxyServer struct {
 * [JSON-RPC methods](https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_getwork)
 * [cpp-ethereum/libethash](https://github.com/ethereum/cpp-ethereum/tree/develop/libethash)
 * [Web3.js API 中文文档](http://web3.tryblockchain.org/Web3.js-api-refrence.html)
+* [Redis Command 命令](http://www.runoob.com/redis/server-command.html)
