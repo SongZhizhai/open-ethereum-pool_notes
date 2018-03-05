@@ -5,6 +5,7 @@
 * [open-ethereum-pool以太坊矿池-proxy模块](proxy/proxy.md)
 * [open-ethereum-pool以太坊矿池-storage模块(redis存储)](redis/redis.md)
 * [open-ethereum-pool以太坊矿池-api模块](api/api.md)
+* [open-ethereum-pool以太坊矿池-unlocker模块](unlocker/unlocker.md)
 
 ## 参考文档
 
