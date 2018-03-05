@@ -6,7 +6,7 @@
 //安装parity
 wget http://d1h4xl4cr1h0mo.cloudfront.net/v1.9.4/x86_64-unknown-linux-gnu/parity_1.9.4_ubuntu_amd64.deb
 dpkg -i parity_1.9.4_ubuntu_amd64.deb
-parity --chain=ropsten --geth --rpccorsdomain=all
+parity --chain=ropsten --geth --rpccorsdomain=all --author=0xdda50d9783dfda1c7ac51c4920f3561e17438be7 >> /work/parity.log 2>&1 &
 
 //安装Geth
 add-apt-repository -y ppa:ethereum/ethereum
@@ -22,10 +22,10 @@ geth attach http://127.0.0.1:8545
 > personal.newAccount()
 Passphrase: 
 Repeat passphrase: 
-"0xa5230ee1a682bf6a65245d2be3ff1b7b56b62ec6"
+"0xdda50d9783dfda1c7ac51c4920f3561e17438be7"
 
 //查账户余额
-> eth.getBalance("0xa5230ee1a682bf6a65245d2be3ff1b7b56b62ec6")
+> eth.getBalance("0xdda50d9783dfda1c7ac51c4920f3561e17438be7")
 ```
 
 ## open-ethereum-pool矿池安装
@@ -68,7 +68,7 @@ make
 //运行open-ethereum-pool
 cd /work/open-ethereum-pool/
 cp config.example.json config.json
-./build/bin/open-ethereum-pool config.json
+./build/bin/open-ethereum-pool config.json >> /work/open-ethereum-pool.log 2>&1 &
 ```
 
 ## 运行www
