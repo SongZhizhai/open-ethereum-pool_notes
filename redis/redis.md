@@ -1,4 +1,13 @@
-# open-ethereum-pool以太坊矿池-redis存储
+# open-ethereum-pool以太坊矿池-storage模块(redis存储)
+
+## RedisClient定义
+
+```go
+type RedisClient struct {
+        client *redis.Client
+        prefix string
+}
+```
 
 ## WriteNodeState
 
