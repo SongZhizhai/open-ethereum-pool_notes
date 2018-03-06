@@ -163,22 +163,32 @@ func (r *RedisClient) CollectStats(smallWindow time.Duration, maxBlocks, maxPaym
 ## CollectLuckStats原理
 
 ```go
+//调取：stats["luck"], err = s.backend.CollectLuckStats(s.config.LuckWindow)
+//"luckWindow": [64, 128, 256],
+//Collect stats for shares/diff ratio for this number of blocks
 func (r *RedisClient) CollectLuckStats(windows []int) (map[string]interface{}, error) {
+	//创建stats map
 	stats := make(map[string]interface{})
 
 	tx := r.client.Multi()
 	defer tx.Close()
 
+	//max即256
 	max := int64(windows[len(windows)-1])
 
 	cmds, err := tx.Exec(func() error {
+		//Zrevrange 命令返回有序集中，指定区间内的成员
+		//ZREVRANGE eth:blocks:immature 0 -1 WITHSCORES
 		tx.ZRevRangeWithScores(r.formatKey("blocks", "immature"), 0, -1)
+		
+		//ZREVRANGE eth:blocks:matured 0 max-1 WITHSCORES
 		tx.ZRevRangeWithScores(r.formatKey("blocks", "matured"), 0, max-1)
 		return nil
 	})
 	if err != nil {
 		return stats, err
 	}
+	//获取blocks
 	blocks := convertBlockResults(cmds[0].(*redis.ZSliceCmd), cmds[1].(*redis.ZSliceCmd))
 
 	calcLuck := func(max int) (int, float64, float64, float64) {
@@ -188,33 +198,73 @@ func (r *RedisClient) CollectLuckStats(windows []int) (map[string]interface{}, e
 			if i > (max - 1) {
 				break
 			}
+			//叔块
 			if block.Uncle {
 				uncles++
 			}
+			//孤块
 			if block.Orphan {
 				orphans++
 			}
+			//shares/Diff
 			sharesDiff += float64(block.TotalShares) / float64(block.Difficulty)
+			//total计数
 			total++
 		}
 		if total > 0 {
+			//单块平均shares/Diff
 			sharesDiff /= float64(total)
+			//uncles率
 			uncles /= float64(total)
+			//孤块率
 			orphans /= float64(total)
 		}
+		//返回total计数，平均shares/Diff，uncles率，孤块率
 		return total, sharesDiff, uncles, orphans
 	}
+	
+	//遍历windows，逐一计算calcLuck，即最近64块、128块、256块的数据统计
 	for _, max := range windows {
 		total, sharesDiff, uncleRate, orphanRate := calcLuck(max)
 		row := map[string]float64{
 			"luck": sharesDiff, "uncleRate": uncleRate, "orphanRate": orphanRate,
 		}
+		//写入stats map
 		stats[strconv.Itoa(total)] = row
+		//计数不对
 		if total < max {
 			break
 		}
 	}
 	return stats, nil
+}
+
+func convertBlockResults(rows ...*redis.ZSliceCmd) []*BlockData {
+	var result []*BlockData
+	//遍历rows
+	for _, row := range rows {
+		//遍历blocks
+		for _, v := range row.Val() {
+			// "uncleHeight:orphan:nonce:blockHash:timestamp:diff:totalShares:rewardInWei"
+			block := BlockData{}
+			block.Height = int64(v.Score)
+			block.RoundHeight = block.Height
+			fields := strings.Split(v.Member.(string), ":")
+			block.UncleHeight, _ = strconv.ParseInt(fields[0], 10, 64)
+			block.Uncle = block.UncleHeight > 0
+			block.Orphan, _ = strconv.ParseBool(fields[1])
+			block.Nonce = fields[2]
+			block.Hash = fields[3]
+			block.Timestamp, _ = strconv.ParseInt(fields[4], 10, 64)
+			block.Difficulty, _ = strconv.ParseInt(fields[5], 10, 64)
+			block.TotalShares, _ = strconv.ParseInt(fields[6], 10, 64)
+			block.RewardString = fields[7]
+			block.ImmatureReward = fields[7]
+			block.immatureKey = v.Member.(string)
+			result = append(result, &block)
+		}
+	}
+	return result
 }
 ```
 
