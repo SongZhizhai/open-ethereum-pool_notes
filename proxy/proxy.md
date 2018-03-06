@@ -40,7 +40,7 @@ type heightDiffPair struct {
         diff   *big.Int
         height uint64
 }
-``
+```
 
 ## 以太坊Pow算法原理
 
