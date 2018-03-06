@@ -160,6 +160,64 @@ func (r *RedisClient) CollectStats(smallWindow time.Duration, maxBlocks, maxPaym
 }
 ```
 
+## CollectLuckStats原理
+
+```go
+func (r *RedisClient) CollectLuckStats(windows []int) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	tx := r.client.Multi()
+	defer tx.Close()
+
+	max := int64(windows[len(windows)-1])
+
+	cmds, err := tx.Exec(func() error {
+		tx.ZRevRangeWithScores(r.formatKey("blocks", "immature"), 0, -1)
+		tx.ZRevRangeWithScores(r.formatKey("blocks", "matured"), 0, max-1)
+		return nil
+	})
+	if err != nil {
+		return stats, err
+	}
+	blocks := convertBlockResults(cmds[0].(*redis.ZSliceCmd), cmds[1].(*redis.ZSliceCmd))
+
+	calcLuck := func(max int) (int, float64, float64, float64) {
+		var total int
+		var sharesDiff, uncles, orphans float64
+		for i, block := range blocks {
+			if i > (max - 1) {
+				break
+			}
+			if block.Uncle {
+				uncles++
+			}
+			if block.Orphan {
+				orphans++
+			}
+			sharesDiff += float64(block.TotalShares) / float64(block.Difficulty)
+			total++
+		}
+		if total > 0 {
+			sharesDiff /= float64(total)
+			uncles /= float64(total)
+			orphans /= float64(total)
+		}
+		return total, sharesDiff, uncles, orphans
+	}
+	for _, max := range windows {
+		total, sharesDiff, uncleRate, orphanRate := calcLuck(max)
+		row := map[string]float64{
+			"luck": sharesDiff, "uncleRate": uncleRate, "orphanRate": orphanRate,
+		}
+		stats[strconv.Itoa(total)] = row
+		if total < max {
+			break
+		}
+	}
+	return stats, nil
+}
+```
+
 ## purgeStale原理
 
 ```go
