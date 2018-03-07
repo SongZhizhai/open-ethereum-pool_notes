@@ -7,6 +7,7 @@
 * [open-ethereum-pool以太坊矿池-api模块](api/api.md)
 * [open-ethereum-pool以太坊矿池-unlocker模块](unlocker/unlocker.md)
 * [open-ethereum-pool以太坊矿池-payouts模块](payouts/payouts.md)
+* [open-ethereum-pool以太坊矿池-policy模块](policy/policy.md)
 
 ## 参考文档
 
