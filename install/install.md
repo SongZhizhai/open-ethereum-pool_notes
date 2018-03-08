@@ -86,6 +86,7 @@ screen ./build/bin/open-ethereum-pool unlock.json
 ## 运行www
 
 ```shell
+cd /data/
 //修改www/config/environment.js
 vim www/config/environment.js
 
@@ -96,15 +97,10 @@ StratumHost: '106.15.89.134',
 //编译www
 cd www
 npm install -g ember-cli@2.9.1
-//低版本使用：npm install -g ember-cli@2.4.3
 npm install -g bower
 sudo npm install
 bower install --allow-root
 ./build.sh
-
-//复制静态文件目录
-mkdir -p /data/www/
-cp -r dist /data/www/
 
 //配置nginx
 vim /etc/nginx/sites-available/default
@@ -131,7 +127,7 @@ service nginx restart
 //解压至C:\ethminer
 //启动
 cd c:\ethminer\bin
-ethminer.exe -G -F http://106.15.89.134:8888/0xc1d0932D18a4Ec35728b7fF02288dF745D1f4F40
+ethminer.exe -G -F http://106.15.89.134:8888/0x1DD1a1681285E09A46a69A14b010Cf846511da90
 ```
 
 ## 参考文档

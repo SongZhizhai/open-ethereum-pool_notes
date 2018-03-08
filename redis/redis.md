@@ -63,21 +63,7 @@ MULTI 标记一个事务块的开始
 EXEC 取消 WATCH 命令对所有 key 的监视
 ```
 
-## Redis数据结构
-
-### 黑名单eth:blacklist
-
-```
-类型：Set
-SMEMBERS eth:blacklist
-```
-
-### 白名单eth:whitelist
-
-```
-类型：Set
-SMEMBERS eth:whitelist
-```
+## Redis重要数据结构
 
 ### 节点状态eth:nodes
 
@@ -89,11 +75,11 @@ HGETALL eth:nodes
 1) "main:name"
 2) "main"
 3) "main:height"
-4) "5211711"
+4) "2795569"
 5) "main:difficulty"
-6) "3194499380549414"
+6) "1329012570"
 7) "main:lastBeat"
-8) "1520413165"
+8) "1520509038"
 
 //如下为更新操作，慎重使用
 HSET eth:nodes <name>:name <name>
@@ -120,11 +106,96 @@ HINCRBY eth:stats roundShares diff
 HDEL eth:stats roundShares
 ```
 
+### 财务统计eth:finances
+
+```
+类型：Hash
+HGETALL eth:finances
+
+> HGETALL eth:finances
+ 1) "immature"
+ 2) "0"
+ 3) "lastCreditHeight"
+ 4) "2795263"
+ 5) "totalMined"
+ 6) "8730817950017"
+ 7) "balance"
+ 8) "8730817950029"
+ 9) "lastCreditHash"
+10) "0xd52c77ffe9266158df3e72a92ea25b55238089b6ab99c92d4aa181ba83721a12"
+
+//如下为更新操作，慎重使用
+HINCRBY eth:finances balance -amount
+HINCRBY eth:finances pending amount
+//如下两行为回滚
+HINCRBY eth:finances balance amount
+HINCRBY eth:finances pending -amount
+
+HINCRBY eth:finances paid amount
+HINCRBY eth:finances immature total
+
+HSET eth:finances lastCreditHeight blockHeight
+HSET eth:finances lastCreditHash blockHash
+HSET eth:finances totalMined blockRewardInShannon
+```
+
+### 信用 eth:credits:all
+
+```
+类型：sorted set
+ZREVRANGE eth:credits:all 0 -1 WITHSCORES
+
+> ZREVRANGE eth:credits:all 0 5 WITHSCORES
+ 1) "0xd52c77ffe9266158df3e72a92ea25b55238089b6ab99c92d4aa181ba83721a12:1520506196:3125000000000000000"
+ 2) "2795263"
+ 3) "0x546fdb7c60976ea84b44da0d940c1c7cb33ffc1b182fc625087ca1185e212abe:1520506196:5064246008000000000"
+ 4) "2795260"
+ 5) "0x0d7b4f760f83281cccf312ce0d67a4176115de9c62b5875ed56b6704d022b978:1520506196:5000240510000000000"
+ 6) "2795259"
+ 7) "0x3a563e8d16a492157d46835e8d488f02b8cf3712775d68875b91680f1ed02a98:1520506196:5019661474000000000"
+ 8) "2795257"
+ 9) "0xde58d9a1d7b02ae4e2bcde436943fe75ba273b327b605d4aa01f8f3f663e3c7b:1520506196:5001432583000000000"
+10) "2795256"
+11) "0x662cda661fcd90ad2919baf48c3a5fd707f309606e9e604627a133006dbff393:1520506196:5000416532000000000"
+12) "2795255
+
+//如下为更新操作，慎重使用
+ZADD eth:credits:all Height blockHash:ts:blockReward
+SETNX eth:credits:Height:blockHash login amount
+```
+
+### 信用事务 eth:credits:immature:Height:Hash
+
+```
+类型：Hash
+HGETALL eth:credits:immature:Height:Hash
+
+//如下为更新操作，慎重使用
+SETNX eth:credits:immature:Height:Hash login amount
+WATCH eth:credits:immature:Height:Hash
+```
+
+## 其他数据结构
+
+### 黑名单eth:blacklist
+
+```
+类型：Set
+SMEMBERS eth:blacklist
+```
+
+### 白名单eth:whitelist
+
+```
+类型：Set
+SMEMBERS eth:whitelist
+```
+
 ### 矿机eth:miners:login
 
 ```
 类型：Hash
-SCAN eth:miners:* 100
+SCAN 0 MATCH eth:miners:* COUNT 100
 HGETALL eth:miners:login
 HGET eth:miners:login balance
 
@@ -146,27 +217,6 @@ HINCRBY eth:miners:login immature -amount
 EXISTS eth:miners:login
 ```
 
-### 财务eth:finances
-
-```
-类型：Hash
-HGETALL eth:finances
-
-//如下为更新操作，慎重使用
-HINCRBY eth:finances balance -amount
-HINCRBY eth:finances pending amount
-//如下两行为回滚
-HINCRBY eth:finances balance amount
-HINCRBY eth:finances pending -amount
-
-HINCRBY eth:finances paid amount
-HINCRBY eth:finances immature total
-
-HSET eth:finances lastCreditHeight blockHeight
-HSET eth:finances lastCreditHash blockHash
-HSET eth:finances totalMined blockRewardInShannon
-```
-
 ### Shares eth:shares
 
 ```
@@ -178,17 +228,6 @@ HGETALL eth:shares:round<height>:nonce
 //如下为更新操作，慎重使用
 HINCRBY eth:shares:roundCurrent login diff
 RENAME eth:shares:roundCurrent eth:shares:round<height>:nonce
-```
-
-### 信用事务 eth:credits:immature:Height:Hash
-
-```
-类型：Hash
-HGETALL eth:credits:immature:Height:Hash
-
-//如下为更新操作，慎重使用
-SETNX eth:credits:immature:Height:Hash login amount
-WATCH eth:credits:immature:Height:Hash
 ```
 
 ### 提交Share eth:pow
@@ -303,17 +342,6 @@ ZCARD eth:payments:login
 
 //如下为更新操作，慎重使用
 ZADD eth:payments:all ts txHash:login:amount
-```
-
-### 信用 eth:credits:all
-
-```
-类型：sorted set
-ZREVRANGE eth:credits:all 0 -1 WITHSCORES
-
-//如下为更新操作，慎重使用
-ZADD eth:credits:all Height blockHash:ts:blockReward
-SETNX eth:credits:Height:blockHash login amount
 ```
 
 ### 支付锁eth:payments:lock
