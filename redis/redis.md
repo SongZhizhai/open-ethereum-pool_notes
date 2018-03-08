@@ -85,6 +85,16 @@ SMEMBERS eth:whitelist
 类型：Hash
 HGETALL eth:nodes
 
+> HGETALL eth:nodes
+1) "main:name"
+2) "main"
+3) "main:height"
+4) "5211711"
+5) "main:difficulty"
+6) "3194499380549414"
+7) "main:lastBeat"
+8) "1520413165"
+
 //如下为更新操作，慎重使用
 HSET eth:nodes <name>:name <name>
 HSET eth:nodes <name>:height height
@@ -97,6 +107,12 @@ HSET eth:nodes <name>:lastBeat now
 ```
 类型：Hash
 HGETALL eth:stats
+
+> HGETALL eth:stats
+1) "lastBlockFound"
+2) "1520402736"
+3) "roundShares"
+4) "1160480000000000"
 
 //如下为更新操作，慎重使用
 HSET eth:stats lastBlockFound ts
@@ -315,7 +331,7 @@ DEL eth:payments:lock
 
 * [Redis 集合(Set)](http://www.runoob.com/redis/redis-sets.html)
 * [Redis 有序集合(sorted set)](http://www.runoob.com/redis/redis-sorted-sets.html)
-* [
+* [Redis 哈希(Hash)](http://www.runoob.com/redis/redis-hashes.html)
 * [MULTI](http://redisdoc.com/transaction/multi.html)
 * [Redis Hset 命令](http://www.runoob.com/redis/hashes-hset.html)
 * [gopkg.in/redis.v3](https://godoc.org/gopkg.in/redis.v3)
